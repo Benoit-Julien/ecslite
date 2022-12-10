@@ -11,15 +11,19 @@ using Unity.IL2CPP.CompilerServices;
 #endif
 
 namespace Leopotam.EcsLite {
-    public interface IEcsPool {
-        void Resize (int capacity);
-        bool Has (int entity);
-        void Del (int entity);
-        void AddRaw (int entity, object dataRaw);
-        object GetRaw (int entity);
-        void SetRaw (int entity, object dataRaw);
+    public interface IEcsBase
+    {
+        void Resize(int capacity);
+        bool Has(int entity);
+        void Del(int entity);
+        Type GetComponentType();
         int GetId ();
-        Type GetComponentType ();
+        object GetRaw (int entity);
+    }
+    
+    public interface IEcsPool : IEcsBase {
+        void AddRaw (int entity, object dataRaw);
+        void SetRaw (int entity, object dataRaw);
     }
 
     public interface IEcsAutoReset<T> where T : struct {
@@ -102,11 +106,11 @@ namespace Leopotam.EcsLite {
             return _type;
         }
 
-        void IEcsPool.Resize (int capacity) {
+        void IEcsBase.Resize (int capacity) {
             Array.Resize (ref _sparseItems, capacity);
         }
 
-        object IEcsPool.GetRaw (int entity) {
+        object IEcsBase.GetRaw (int entity) {
             return Get (entity);
         }
 

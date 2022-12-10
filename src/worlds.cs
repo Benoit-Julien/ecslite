@@ -29,11 +29,11 @@ namespace Leopotam.EcsLite {
         int _entitiesCount;
         int[] _recycledEntities;
         int _recycledEntitiesCount;
-        IEcsPool[] _pools;
+        IEcsBase[] _pools;
         short _poolsCount;
         readonly int _poolDenseSize;
         readonly int _poolRecycledSize;
-        readonly Dictionary<Type, IEcsPool> _poolHashes;
+        readonly Dictionary<Type, IEcsBase> _poolHashes;
         readonly Dictionary<int, EcsFilter> _hashedFilters;
         readonly List<EcsFilter> _allFilters;
         List<EcsFilter>[] _filtersByIncludedComponents;
@@ -92,8 +92,8 @@ namespace Leopotam.EcsLite {
             _recycledEntitiesCount = 0;
             // pools.
             capacity = cfg.Pools > 0 ? cfg.Pools : Config.PoolsDefault;
-            _pools = new IEcsPool[capacity];
-            _poolHashes = new Dictionary<Type, IEcsPool> (capacity);
+            _pools = new IEcsBase[capacity];
+            _poolHashes = new Dictionary<Type, IEcsBase> (capacity);
             _filtersByIncludedComponents = new List<EcsFilter>[capacity];
             _filtersByExcludedComponents = new List<EcsFilter>[capacity];
             _poolDenseSize = cfg.PoolDenseSize > 0 ? cfg.PoolDenseSize : Config.PoolDenseSizeDefault;
@@ -286,16 +286,26 @@ namespace Leopotam.EcsLite {
             return pool;
         }
 
-        [MethodImpl (MethodImplOptions.AggressiveInlining)]
-        public IEcsPool GetPoolById (int typeId) {
-            return typeId >= 0 && typeId < _poolsCount ? _pools[typeId] : null;
+        public EcsBuffer<T> GetBuffer<T> () where T : unmanaged {
+            var poolType = typeof (T);
+            if (_poolHashes.TryGetValue (poolType, out var rawPool)) {
+                return (EcsBuffer<T>) rawPool;
+            }
+#if DEBUG
+            if (_poolsCount == short.MaxValue) { throw new Exception ("No more room for new component into this world."); }
+#endif
+            var pool = new EcsBuffer<T> (this, _poolsCount, _poolDenseSize, GetWorldSize (), _poolRecycledSize);
+            _poolHashes[poolType] = pool;
+            if (_poolsCount == _pools.Length) {
+                var newSize = _poolsCount << 1;
+                Array.Resize (ref _pools, newSize);
+                Array.Resize (ref _filtersByIncludedComponents, newSize);
+                Array.Resize (ref _filtersByExcludedComponents, newSize);
+            }
+            _pools[_poolsCount++] = pool;
+            return pool;
         }
-
-        [MethodImpl (MethodImplOptions.AggressiveInlining)]
-        public IEcsPool GetPoolByType (Type type) {
-            return _poolHashes.TryGetValue (type, out var pool) ? pool : null;
-        }
-
+        
         public int GetAllEntities (ref int[] entities) {
             var count = _entitiesCount - _recycledEntitiesCount;
             if (entities == null || entities.Length < count) {
