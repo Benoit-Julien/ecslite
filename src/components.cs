@@ -26,11 +26,15 @@ namespace Leopotam.EcsLite {
         void AutoReset (ref T c);
     }
 
+    public interface IComponent
+    {
+    }
+
 #if ENABLE_IL2CPP
     [Il2CppSetOption (Option.NullChecks, false)]
     [Il2CppSetOption (Option.ArrayBoundsChecks, false)]
 #endif
-    public sealed class EcsPool<T> : IEcsPool where T : struct {
+    public sealed class EcsPool<T> : IEcsPool where T : struct, IComponent {
         readonly Type _type;
         readonly EcsWorld _world;
         readonly short _id;

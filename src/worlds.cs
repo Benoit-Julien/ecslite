@@ -266,7 +266,7 @@ namespace Leopotam.EcsLite {
             return _entities;
         }
 
-        public EcsPool<T> GetPool<T> () where T : struct {
+        public EcsPool<T> GetPool<T> () where T : struct, IComponent {
             var poolType = typeof (T);
             if (_poolHashes.TryGetValue (poolType, out var rawPool)) {
                 return (EcsPool<T>) rawPool;
@@ -321,9 +321,14 @@ namespace Leopotam.EcsLite {
         }
 
         [MethodImpl (MethodImplOptions.AggressiveInlining)]
-        public Mask Filter<T> () where T : struct {
-            var mask = _masksCount > 0 ? _masks[--_masksCount] : new Mask (this);
+        public Mask Filter<T> () where T : struct, IComponent {
+            var mask = CreateMask();
             return mask.Inc<T> ();
+        }
+
+        [MethodImpl (MethodImplOptions.AggressiveInlining)]
+        public Mask CreateMask() {
+            return _masksCount > 0 ? _masks[--_masksCount] : new Mask (this);
         }
 
         public int GetComponents (int entity, ref object[] list) {
@@ -584,12 +589,17 @@ namespace Leopotam.EcsLite {
             }
 
             [MethodImpl (MethodImplOptions.AggressiveInlining)]
-            public Mask Inc<T> () where T : struct {
-                var poolId = _world.GetPool<T> ().GetId ();
+            public Mask Inc<T> () where T : struct, IComponent {
+                return Inc(_world.GetPool<T> ().GetId());
+            }
+
+            [MethodImpl (MethodImplOptions.AggressiveInlining)]
+            public Mask Inc(int poolId)
+            {
 #if DEBUG && !LEOECSLITE_NO_SANITIZE_CHECKS
                 if (_built) { throw new Exception ("Cant change built mask."); }
-                if (Array.IndexOf (Include, poolId, 0, IncludeCount) != -1) { throw new Exception ($"{typeof (T).Name} already in constraints list."); }
-                if (Array.IndexOf (Exclude, poolId, 0, ExcludeCount) != -1) { throw new Exception ($"{typeof (T).Name} already in constraints list."); }
+                if (Array.IndexOf (Include, poolId, 0, IncludeCount) != -1) { throw new Exception ($"{_world.GetPoolById(poolId).GetComponentType().Name} already in constraints list."); }
+                if (Array.IndexOf (Exclude, poolId, 0, ExcludeCount) != -1) { throw new Exception ($"{_world.GetPoolById(poolId).GetComponentType().Name} already in constraints list."); }
 #endif
                 if (IncludeCount == Include.Length) { Array.Resize (ref Include, IncludeCount << 1); }
                 Include[IncludeCount++] = poolId;
@@ -600,12 +610,20 @@ namespace Leopotam.EcsLite {
             [UnityEngine.Scripting.Preserve]
 #endif
             [MethodImpl (MethodImplOptions.AggressiveInlining)]
-            public Mask Exc<T> () where T : struct {
-                var poolId = _world.GetPool<T> ().GetId ();
+            public Mask Exc<T> () where T : struct, IComponent {
+                return Exc(_world.GetPool<T> ().GetId());
+            }
+
+#if UNITY_2020_3_OR_NEWER
+            [UnityEngine.Scripting.Preserve]
+#endif
+            [MethodImpl (MethodImplOptions.AggressiveInlining)]
+            public Mask Exc(int poolId)
+            {
 #if DEBUG && !LEOECSLITE_NO_SANITIZE_CHECKS
                 if (_built) { throw new Exception ("Cant change built mask."); }
-                if (Array.IndexOf (Include, poolId, 0, IncludeCount) != -1) { throw new Exception ($"{typeof (T).Name} already in constraints list."); }
-                if (Array.IndexOf (Exclude, poolId, 0, ExcludeCount) != -1) { throw new Exception ($"{typeof (T).Name} already in constraints list."); }
+                if (Array.IndexOf (Include, poolId, 0, IncludeCount) != -1) { throw new Exception ($"{_world.GetPoolById(poolId).GetComponentType().Name} already in constraints list."); }
+                if (Array.IndexOf (Exclude, poolId, 0, ExcludeCount) != -1) { throw new Exception ($"{_world.GetPoolById(poolId).GetComponentType().Name} already in constraints list."); }
 #endif
                 if (ExcludeCount == Exclude.Length) { Array.Resize (ref Exclude, ExcludeCount << 1); }
                 Exclude[ExcludeCount++] = poolId;
